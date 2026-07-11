@@ -1,4 +1,9 @@
 # hive
+[![Erlang-compatible](https://img.shields.io/badge/target-erlang-b83998)](https://www.erlang.org/)
+[![Package Version](https://img.shields.io/hexpm/v/beehive)](https://hex.pm/packages/beehive)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/beehive/)
+
+
 A library to create pool of actors with builtin queing.
 
 **Features:**
@@ -7,10 +12,6 @@ A library to create pool of actors with builtin queing.
 - Configurable strategy to pick workers (FIFO, LIFO, OIFO)
 - Configurable queuing strategy (FIFO, LIFO)
 - Automatically stop workers when idle for too long
-
-[![Erlang-compatible](https://img.shields.io/badge/target-erlang-b83998)](https://www.erlang.org/)
-[![Package Version](https://img.shields.io/hexpm/v/beehive)](https://hex.pm/packages/beehive)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/beehive/)
 
 ```sh
 gleam add beehive@1
