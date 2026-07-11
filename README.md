@@ -13,7 +13,7 @@ A library to create pool of actors with builtin queing.
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/hive/)
 
 ```sh
-gleam add hive@1
+gleam add beehive@1
 ```
 ```gleam
 import gleam/erlang/process
