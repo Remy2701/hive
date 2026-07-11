@@ -9,8 +9,8 @@ A library to create pool of actors with builtin queing.
 - Automatically stop workers when idle for too long
 
 [![Erlang-compatible](https://img.shields.io/badge/target-erlang-b83998)](https://www.erlang.org/)
-[![Package Version](https://img.shields.io/hexpm/v/hive)](https://hex.pm/packages/hive)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/hive/)
+[![Package Version](https://img.shields.io/hexpm/v/beehive)](https://hex.pm/packages/beehive)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://hexdocs.pm/beehive/)
 
 ```sh
 gleam add beehive@1
@@ -65,7 +65,7 @@ pub fn readme_test() {
 }
 ```
 
-Further documentation can be found at <https://hexdocs.pm/hive>.
+Further documentation can be found at <https://hexdocs.pm/beehive>.
 
 ## Development
 
