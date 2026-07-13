@@ -517,17 +517,27 @@ fn worker(
 ) {
   actor.new_with_initialiser(builder.timeout, fn(subject) {
     let user_subject = process.new_subject()
-    use state <- result.try(builder.initialiser(user_subject))
+    use initialized <- result.try(builder.initialiser(user_subject))
 
     let age = timestamp.system_time()
 
-    WorkerState(parent: dispatcher, subject: subject, age: age, state: state)
-    |> actor.initialised()
-    |> actor.selecting(
-      process.new_selector()
-      |> process.select(subject)
-      |> process.select_map(user_subject, UserMessage),
+    WorkerState(
+      parent: dispatcher,
+      subject: subject,
+      age: age,
+      state: initialized.state,
     )
+    |> actor.initialised()
+    |> actor.selecting(case initialized.selector {
+      option.Some(selector) ->
+        process.new_selector()
+        |> process.select(subject)
+        |> process.merge_selector(process.map_selector(selector, UserMessage))
+      option.None ->
+        process.new_selector()
+        |> process.select(subject)
+        |> process.select_map(user_subject, UserMessage)
+    })
     |> actor.returning(subject)
     |> Ok
   })
@@ -577,6 +587,26 @@ fn worker(
 //                                            Builder                                            //
 //-----------------------------------------------------------------------------------------------//
 
+/// The type returned by the actor's initialiser. It can contain a selector to receive messages 
+/// and must include the initial state.
+pub opaque type Initialized(state, message) {
+  Initialized(state: state, selector: option.Option(process.Selector(message)))
+}
+
+/// Create a new initialized state with the given state and no selector.
+pub fn initialized(state: state) -> Initialized(state, message) {
+  Initialized(state: state, selector: option.None)
+}
+
+/// Set the selector for the initialized state. This allows the actor to receive messages from the 
+/// given selector.
+pub fn selecting(
+  initialized: Initialized(state, message),
+  selector: process.Selector(message),
+) -> Initialized(state, message) {
+  Initialized(..initialized, selector: option.Some(selector))
+}
+
 pub type Strategy {
   /// The first worker that was added to the free workers queue will be the first to be assigned a 
   /// message.
@@ -596,7 +626,8 @@ pub opaque type Builder(state, message) {
     strategy: Strategy,
     processing_timeout: option.Option(Int),
     name: option.Option(process.Name(DispatcherMessage(message))),
-    initialiser: fn(process.Subject(message)) -> Result(state, String),
+    initialiser: fn(process.Subject(message)) ->
+      Result(Initialized(state, message), String),
     on_message: fn(state, message) -> Next(state),
     close_after: option.Option(Int),
     event_receiver: option.Option(process.Subject(EventMessage)),
@@ -611,7 +642,8 @@ pub opaque type Builder(state, message) {
 /// an error will be returned from the `send` function.
 pub fn new_with_initialiser(
   timeout: Int,
-  initialiser: fn(process.Subject(message)) -> Result(state, String),
+  initialiser: fn(process.Subject(message)) ->
+    Result(Initialized(state, message), String),
 ) -> Builder(state, message) {
   Builder(
     size: 1,
@@ -629,7 +661,7 @@ pub fn new_with_initialiser(
 
 /// Create a new builder with the given initial state. The default size will be 1 and strategy is FIFO.
 pub fn new(initial: state) -> Builder(state, message) {
-  new_with_initialiser(100, fn(_) { initial |> Ok })
+  new_with_initialiser(100, fn(_) { initial |> initialized |> Ok })
 }
 
 /// Set the maximum number of workers in the pool. 
