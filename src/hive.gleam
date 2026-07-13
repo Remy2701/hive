@@ -589,22 +589,22 @@ fn worker(
 
 /// The type returned by the actor's initialiser. It can contain a selector to receive messages 
 /// and must include the initial state.
-pub opaque type Initialized(state, message) {
-  Initialized(state: state, selector: option.Option(process.Selector(message)))
+pub opaque type Initialised(state, message) {
+  Initialised(state: state, selector: option.Option(process.Selector(message)))
 }
 
-/// Create a new initialized state with the given state and no selector.
-pub fn initialized(state: state) -> Initialized(state, message) {
-  Initialized(state: state, selector: option.None)
+/// Create a new initialised state with the given state and no selector.
+pub fn initialised(state: state) -> Initialised(state, message) {
+  Initialised(state: state, selector: option.None)
 }
 
 /// Set the selector for the initialized state. This allows the actor to receive messages from the 
 /// given selector.
 pub fn selecting(
-  initialized: Initialized(state, message),
+  initialized: Initialised(state, message),
   selector: process.Selector(message),
-) -> Initialized(state, message) {
-  Initialized(..initialized, selector: option.Some(selector))
+) -> Initialised(state, message) {
+  Initialised(..initialized, selector: option.Some(selector))
 }
 
 pub type Strategy {
@@ -627,7 +627,7 @@ pub opaque type Builder(state, message) {
     processing_timeout: option.Option(Int),
     name: option.Option(process.Name(DispatcherMessage(message))),
     initialiser: fn(process.Subject(message)) ->
-      Result(Initialized(state, message), String),
+      Result(Initialised(state, message), String),
     on_message: fn(state, message) -> Next(state),
     close_after: option.Option(Int),
     event_receiver: option.Option(process.Subject(EventMessage)),
@@ -643,7 +643,7 @@ pub opaque type Builder(state, message) {
 pub fn new_with_initialiser(
   timeout: Int,
   initialiser: fn(process.Subject(message)) ->
-    Result(Initialized(state, message), String),
+    Result(Initialised(state, message), String),
 ) -> Builder(state, message) {
   Builder(
     size: 1,
@@ -661,7 +661,7 @@ pub fn new_with_initialiser(
 
 /// Create a new builder with the given initial state. The default size will be 1 and strategy is FIFO.
 pub fn new(initial: state) -> Builder(state, message) {
-  new_with_initialiser(100, fn(_) { initial |> initialized |> Ok })
+  new_with_initialiser(100, fn(_) { initial |> initialised |> Ok })
 }
 
 /// Set the maximum number of workers in the pool. 

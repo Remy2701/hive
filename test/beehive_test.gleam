@@ -27,8 +27,8 @@ pub type Message {
 
 fn state_initialiser(
   subject: process.Subject(Message),
-) -> Result(hive.Initialized(State, Message), String) {
-  Ok(hive.initialized(State(subject: subject)))
+) -> Result(hive.Initialised(State, Message), String) {
+  Ok(hive.initialised(State(subject: subject)))
 }
 
 fn handle_message(state: State, message: Message) {
@@ -349,7 +349,7 @@ pub fn timeout_worker_init_test() {
   let pool_spec =
     hive.new_with_initialiser(1, fn(subject) {
       process.sleep(100)
-      Ok(hive.initialized(State(subject: subject)))
+      Ok(hive.initialised(State(subject: subject)))
     })
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
