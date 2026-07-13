@@ -467,13 +467,22 @@ type WorkerInternalMessage(message) {
 pub opaque type Next(state) {
   /// Continue processing with the updated state
   Continue(state: state)
+  /// Continue processing without releasing the worker back to the dispatcher. This is useful when 
+  /// the worker is waiting for a message to finish the processing.
+  KeepBusy(state: state)
   /// Stop processing and terminate the worker normally
   Stop(process.ExitReason)
 }
 
-/// Continue processing with the updated state
+/// Continue processing with the updated state.
 pub fn continue(state) -> Next(state) {
   Continue(state: state)
+}
+
+/// Continue processing without releasing the worker back to the dispatcher. This is useful when
+/// the worker is waiting for a message to finish the processing.
+pub fn keep_busy(state) -> Next(state) {
+  KeepBusy(state: state)
 }
 
 /// Stop processing and terminate the worker normally
@@ -533,6 +542,9 @@ fn worker(
               state.parent,
               DispatcherWorkerReady(#(state.subject, state.age)),
             )
+            actor.continue(WorkerState(..state, state: inner))
+          }
+          KeepBusy(state: inner) -> {
             actor.continue(WorkerState(..state, state: inner))
           }
           Stop(process.Normal) -> {

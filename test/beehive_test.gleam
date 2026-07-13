@@ -13,14 +13,25 @@ pub fn main() -> Nil {
   gleeunit.main()
 }
 
+pub type State {
+  State(subject: process.Subject(Message))
+}
+
 pub type Message {
   Sleep(Int)
   Ping(str: String, reply_to: process.Subject(String))
+  GetSubject(reply_to: process.Subject(process.Subject(Message)))
   StopNormal
   StopAbnormal
 }
 
-fn handle_message(state, message: Message) {
+fn state_initialiser(
+  subject: process.Subject(Message),
+) -> Result(State, String) {
+  Ok(State(subject: subject))
+}
+
+fn handle_message(state: State, message: Message) {
   case message {
     Sleep(duration) -> {
       process.sleep(duration)
@@ -29,6 +40,10 @@ fn handle_message(state, message: Message) {
     Ping(str, reply_to) -> {
       process.send(reply_to, str)
       hive.continue(state)
+    }
+    GetSubject(reply_to) -> {
+      process.send(reply_to, state.subject)
+      hive.keep_busy(state)
     }
     StopNormal -> hive.stop()
     StopAbnormal -> hive.stop_abnormal("abnormal stop requested")
@@ -65,7 +80,7 @@ pub fn schedule_and_fill_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -113,6 +128,54 @@ pub fn schedule_and_fill_test() {
   |> should.equal(event.WorkerAssigned(count: 1, free: 0, capacity: 1))
 }
 
+/// Tests the behaviour of a pool with a size of 1,  which should accept the first message and reject the next one while the first is still being processed.
+pub fn keep_busy_test() {
+  let pool_name = process.new_name("pool")
+
+  let event_subject = process.new_subject()
+
+  let pool_spec =
+    hive.new_with_initialiser(100, state_initialiser)
+    |> hive.with_size(1)
+    |> hive.with_name(pool_name)
+    |> hive.on_message(handle_message)
+    |> hive.with_event_receiver(event_subject)
+    |> hive.supervised()
+
+  let assert Ok(_) =
+    supervisor.new(supervisor.OneForOne)
+    |> supervisor.add(pool_spec)
+    |> supervisor.start
+
+  let pool = process.named_subject(pool_name)
+
+  // Accept the first message
+  let subject = process.new_subject()
+  hive.send(pool, GetSubject(subject), 100)
+  |> should.be_ok()
+
+  // Worker should be created
+  process.receive(event_subject, 200)
+  |> should.be_ok()
+  |> should.equal(event.WorkerCreated(count: 1, free: 1, capacity: 1))
+
+  // Worker should be assigned
+  process.receive(event_subject, 200)
+  |> should.be_ok()
+  |> should.equal(event.WorkerAssigned(count: 1, free: 0, capacity: 1))
+
+  let worker_subject =
+    process.receive(subject, 200)
+    |> should.be_ok()
+
+  process.send(worker_subject, Sleep(100))
+
+  // Worker should be unassigned within 200ms 
+  process.receive(event_subject, 200)
+  |> should.be_ok()
+  |> should.equal(event.WorkerUnassigned(count: 1, free: 1, capacity: 1))
+}
+
 /// Tests the behaviour of a pool with a size of 1, which should accept the first message and automatically clean the worker after a certain amount of time.
 pub fn schedule_and_free_test() {
   let pool_name = process.new_name("pool")
@@ -120,7 +183,7 @@ pub fn schedule_and_free_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -181,7 +244,7 @@ pub fn stop_worker_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -223,7 +286,7 @@ pub fn crash_worker_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -284,9 +347,9 @@ pub fn timeout_worker_init_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new_with_initialiser(1, fn(_) {
+    hive.new_with_initialiser(1, fn(subject) {
       process.sleep(100)
-      Ok(Nil)
+      Ok(State(subject: subject))
     })
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
@@ -342,7 +405,7 @@ pub fn worker_processing_timeout_test() {
   let subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -407,7 +470,7 @@ pub fn fifo_queue_test() {
   let ping_subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
@@ -494,7 +557,7 @@ pub fn lifo_queue_test() {
   let ping_subject = process.new_subject()
 
   let pool_spec =
-    hive.new(Nil)
+    hive.new_with_initialiser(100, state_initialiser)
     |> hive.with_size(1)
     |> hive.with_name(pool_name)
     |> hive.on_message(handle_message)
